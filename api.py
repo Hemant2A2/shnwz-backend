@@ -27,6 +27,8 @@ model.load_model(MODEL_PATH)
 # Stub: Replace these with real sensor integrations
 import random
 
+latest_sensor_data = None
+
 def get_health_data_from_sensors():
     """
     Fetch data from actual sensors. This is a stub returning random values.
@@ -62,11 +64,34 @@ def analyze_jaundice_image(image_path: str):
     }
     return result
 
+@app.route('/api/sensor-data', methods=['POST'])
+def ingest_sensor_data():
+    """
+    Clients (e.g. pulse.py on the Pi) should POST JSON here:
+      {
+        "heartRate":  80,
+        "temperature": 23.5,
+        "pressure":   1012,
+        "humidity":   45,
+        "gasLevel":   420,
+        "timestamp":  "2025-05-07T10:23:00Z"
+      }
+    """
+    global latest_sensor_data
+    json = request.get_json()
+    if not json:
+        abort(400, "Expected JSON body")
+    # You might validate keys here…
+    latest_sensor_data = json
+    return jsonify({"status": "ok"}), 201
+
+
 @app.route('/api/health-data', methods=['GET'])
 def health_data():
-    """
-    GET endpoint to fetch health sensor data.
-    """
+    if latest_sensor_data:
+        return jsonify(latest_sensor_data)
+
+    # Fallback if no POST has arrived yet
     try:
         data = get_health_data_from_sensors()
         return jsonify(data)
